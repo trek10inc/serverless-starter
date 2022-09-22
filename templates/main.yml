@@ -1,0 +1,36 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+
+Parameters:
+  ApplicationName:
+    Type: String
+    Description: The application name that is being deployed
+  EnvironmentName:
+    Type: String
+    Description: The environment in which the stack will be deployed
+
+
+Resources:
+  Data:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./data.yml
+      Parameters:
+        ApplicationName: !Ref ApplicationName
+        EnvironmentName: !Ref EnvironmentName
+
+  Api:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./api.yml
+      Parameters:
+        ApplicationName: !Ref ApplicationName
+        EnvironmentName: !Ref EnvironmentName
+        TableArn: !GetAtt [Data, Outputs.TableArn]
+        TableName: !GetAtt [Data, Outputs.TableName]
+
+
+Outputs:
+  ApiEndpoint:
+    Value: !GetAtt Api.Outputs.ApiEndpoint
+    Description: API Gateway endpoint URL for the API

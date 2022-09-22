@@ -1,0 +1,31 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+
+Parameters:
+  ApplicationName:
+    Type: String
+    Description: The application name that is being deployed
+  EnvironmentName:
+    Type: String
+    Description: The environment in which the stack will be deployed
+
+
+Resources:
+  DataTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${ApplicationName}-${EnvironmentName}-data
+      AttributeDefinitions:
+        - AttributeName: Setup
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      KeySchema:
+        - AttributeName: Setup
+          KeyType: HASH
+
+
+Outputs:
+  TableArn:
+    Value: !GetAtt DataTable.Arn
+  TableName:
+    Value: !Ref DataTable

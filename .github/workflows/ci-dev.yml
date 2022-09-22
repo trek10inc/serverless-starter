@@ -1,0 +1,107 @@
+name: release-dev
+
+on:
+  push:
+    branches:
+      - dev
+
+env:
+  TARGET_ACCOUNT_ID: ${{ secrets.DEV_ACCOUNT_ID }}
+  APPLICATION_NAME: serverless-starter
+  ENVIRONMENT_NAME: dev
+  ARTIFACT_BUCKET: trek10-sam-us-east-1
+  ARTIFACT_PREFIX: artifacts
+  CHANGE_SET_DESCRIPTION: ${{ github.event.head_commit.message }}
+  HOSTED_ZONE_NAME: sandbox.trek10.com
+  DOMAIN_NAME: dev.serverless-starter.sandbox.trek10.com
+
+permissions:
+  id-token: write
+  contents: write
+  packages: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container: ghcr.io/trek10inc/serverless-starter-cicd-image:latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install dependencies
+        run: |
+          make dependencies
+      - name: lint
+        run: |
+          make lint
+      - name: Unit Tests
+        run: |
+          make coverage
+  package:
+    needs: test
+    runs-on: ubuntu-latest
+    container: ghcr.io/trek10inc/serverless-starter-cicd-image:latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Assume role
+        uses: aws-actions/configure-aws-credentials@master
+        with:
+          aws-region: us-east-1
+          role-to-assume: arn:aws:iam::${{ env.TARGET_ACCOUNT_ID }}:role/${{ env.APPLICATION_NAME }}
+          role-session-name: GitHubActions-${{ github.run_id }}
+      - name: Install dependencies
+        run: |
+          make dependencies
+      - name: Package Code
+        run: |
+          make package
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ env.APPLICATION_NAME }}-${{ github.run_id }}
+          path: artifacts/
+  deploy_dev:
+    needs: package
+    runs-on: ubuntu-latest
+    container: ghcr.io/trek10inc/serverless-starter-cicd-image:latest
+    environment: dev
+    steps:
+      - uses: actions/checkout@v2
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ env.APPLICATION_NAME }}-${{ github.run_id }}
+          path: artifacts/
+      - name: Assume role
+        uses: aws-actions/configure-aws-credentials@master
+        with:
+          aws-region: us-east-1
+          role-to-assume: arn:aws:iam::${{ env.TARGET_ACCOUNT_ID }}:role/${{ env.APPLICATION_NAME }}
+          role-session-name: GitHubActions-${{ github.run_id }}
+      - name: Install dependencies
+        run: |
+          make dependencies
+      - id: create_change_set
+        name: Create Change Set
+        run: |
+          make create-change-set
+      - name: Execute Change Set
+        if: ${{ steps.create_change_set.outputs.no_changes != 'true' }}
+        run: |
+          make deploy-change-set
+  integration_test:
+    needs: deploy_dev
+    runs-on: ubuntu-latest
+    container: ghcr.io/trek10inc/serverless-starter-cicd-image:latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Assume role
+        uses: aws-actions/configure-aws-credentials@master
+        with:
+          aws-region: us-east-1
+          role-to-assume: arn:aws:iam::${{ env.TARGET_ACCOUNT_ID }}:role/${{ env.APPLICATION_NAME }}
+          role-session-name: GitHubActions-${{ github.run_id }}
+      - name: Install dependencies
+        run: |
+          make dependencies
+      - name: integration test
+        run: |
+          make integration-test

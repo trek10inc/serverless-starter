@@ -1,0 +1,49 @@
+name: cleanup-pr
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - dev
+      - feature/*
+
+env:
+  TARGET_ACCOUNT_ID: ${{ secrets.DEV_ACCOUNT_ID }}
+  APPLICATION_NAME: serverless-starter
+
+permissions:
+  id-token: write
+  contents: write
+  packages: read
+
+jobs:
+  get_short_ref:
+    if: startsWith(github.head_ref, 'feature/')
+    runs-on: ubuntu-latest
+    outputs:
+      short_ref: ${{ steps.short_ref_job.outputs.short_ref }}
+    steps:
+      - id: short_ref_job
+        name: Testing
+        run: |
+          echo "GITHUB_HEAD_REF: ${GITHUB_HEAD_REF}"
+          echo "SHORT_REF: ${GITHUB_HEAD_REF/feature\/}"
+          echo ::set-output name=short_ref::$(echo ${GITHUB_HEAD_REF/feature\//} | cut -c -16)
+  cleanup-pr:
+    runs-on: ubuntu-latest
+    container: ghcr.io/trek10inc/serverless-starter-cicd-image:latest
+    needs: get_short_ref
+    env:
+      ENVIRONMENT_NAME: ${{ needs.get_short_ref.outputs.short_ref }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Assume role
+        uses: aws-actions/configure-aws-credentials@master
+        with:
+          aws-region: us-east-1
+          role-to-assume: arn:aws:iam::${{ env.TARGET_ACCOUNT_ID }}:role/${{ env.APPLICATION_NAME }}
+          role-session-name: GitHubActions-${{ github.run_id }}
+      - name: Delete environment
+        run: |
+          make delete

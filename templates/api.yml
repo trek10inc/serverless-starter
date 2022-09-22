@@ -1,0 +1,206 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+
+Parameters:
+  ApplicationName:
+    Type: String
+    Description: The application name that is being deployed
+  EnvironmentName:
+    Type: String
+    Description: The environment in which the stack will be deployed
+  TableName:
+    Type: String
+    Description: Name of ddb table
+  TableArn:
+    Type: String
+    Description: Arn of ddb table
+
+
+Globals:
+  Function:
+    Runtime: nodejs14.x
+    MemorySize: 1024
+    Timeout: 5
+    Tracing: PassThrough
+    CodeUri: ../artifacts/dist.zip
+    Environment:
+      Variables:
+        ENVIRONMENT_NAME: !Ref EnvironmentName
+        TABLE_NAME: !Ref TableName
+
+
+Resources:
+  Authorizer:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${ApplicationName}-${EnvironmentName}-authorizer
+      Handler: handlers/auth/authorizer.handler
+
+  GetDocumentation:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${ApplicationName}-${EnvironmentName}-get-documentation
+      Handler: handlers/api/documentation.handler
+  GetDocumentationLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${GetDocumentation}
+
+  GetData:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub ${ApplicationName}-${EnvironmentName}-get-data
+      Handler: handlers/api/data.handler
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action: dynamodb:Scan
+              Resource: !Ref TableArn
+  GetDataLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${GetData}
+
+  ApiServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
+      Policies:
+        - PolicyName: !Sub API_Service_Role_Policy_${EnvironmentName}-${AWS::Region}
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Action: lambda:InvokeFunction
+                Effect: Allow
+                Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*
+
+  ApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/apigateway/${ApplicationName}-${EnvironmentName}
+      RetentionInDays: 7
+
+  Api:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref EnvironmentName
+      AccessLogSettings:
+        DestinationArn: !GetAtt ApiLogGroup.Arn
+        Format: '{ "requestId":"$context.requestId", "ip": "$context.identity.sourceIp", "requestTime":"$context.requestTime", "httpMethod":"$context.httpMethod","routeKey":"$context.routeKey", "status":"$context.status","protocol":"$context.protocol", "responseLength":"$context.responseLength", "errorResponseType":"$context.error.responseType", "message":"$context.error.message", "integrationErrorMessage":"$context.integrationErrorMessage", "authorizerError":"$context.authorizer.error" }'
+      DefinitionBody:
+        openapi: '3.0.1'
+        info:
+          title: !Sub ${ApplicationName}-${EnvironmentName}-api
+          description: Serverless API
+          version: '1.0'
+        paths:
+          /docs:
+            get:
+              operationId: getDocumentation
+              summary: Get OpenAPI spec
+              description: Get the OpenAPI specification as HTML or JSON.
+              x-amazon-apigateway-integration:
+                connectionType: INTERNET
+                credentials: !GetAtt ApiServiceRole.Arn
+                httpMethod: POST
+                payloadFormatVersion: '2.0'
+                type: aws_proxy
+                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetDocumentation.Arn}/invocations
+              # security:
+              #   - NONE: []
+              parameters:
+                - in: query
+                  name: format
+                  description: The format to return the openapi spec (json, default=html)
+                  schema: { type: string }
+              responses:
+                '200': { $ref: '#/components/responses/getDocumentationResponse' }
+          /data:
+            get:
+              operationId: getData
+              summary: Get data
+              description: Returns all data in the table
+              x-amazon-apigateway-integration:
+                connectionType: 'INTERNET'
+                credentials: !GetAtt ApiServiceRole.Arn
+                httpMethod: 'POST'
+                payloadFormatVersion: '2.0'
+                type: 'aws_proxy'
+                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetData.Arn}/invocations
+              # parameters:
+              #   - in: query
+              #     name: myparam
+              #     description: Use myparam to filter the data
+              #     schema: { type: string }
+              security:
+                - Authorizer: []
+              responses:
+                '200': { $ref: '#/components/responses/getDataResponse' }
+        components:
+          requestBodies: {}
+          responses:
+            getDocumentationResponse:
+              description: GET /docs response
+              content:
+                text/html:
+                  schema:
+                    $ref: '#/components/schemas/documentationHtml'
+                application/json:
+                  schema:
+                    $ref: '#/components/schemas/documentationJson'
+            getDataResponse:
+              description: GET /data response
+              content:
+                application/json:
+                  schema:
+                    $ref: '#/components/schemas/data'
+          schemas:
+            documentationHtml:
+              type: string
+              format: html
+            documentationJson:
+              type: object
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    type: object
+          securitySchemes:
+            Authorizer:
+              in: header
+              name: Authorization
+              type: apiKey
+              description: Not actually an api-key. Use JWT.
+              x-amazon-apigateway-authtype: JWT
+              x-amazon-apigateway-authorizer:
+                authorizerPayloadFormatVersion: 2.0
+                enableSimpleResponses: true
+                identitySource:
+                  - $request.header.Authorization
+                authorizerUri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${Authorizer.Arn}/invocations
+                authorizerCredentials: !GetAtt ApiServiceRole.Arn
+                type: request
+                authorizerResultTtlInSeconds: 0
+        x-amazon-apigateway-request-validator: basic
+        x-amazon-apigateway-request-validators:
+          basic:
+            validateRequestBody: true
+            validateRequestParameters: true
+
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL for the API
+    Value: !Sub https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${EnvironmentName}/

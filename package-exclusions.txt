@@ -1,0 +1,8 @@
+*.spec.js
+*.spec.js.*
+*.test.js
+*.test.js.*
+*.template.yml
+*.md
+*integration-tests*
+*test-utils*

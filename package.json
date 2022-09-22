@@ -1,0 +1,43 @@
+{
+  "name": "serverless-app",
+  "version": "0.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripjs": {},
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.101",
+    "aws-sdk": "^2.1109.0",
+    "axios": "^0.27.2",
+    "cfn-event-tailer": "^0.0.2",
+    "chai": "^4.3.6",
+    "chai-as-promised": "^7.1.1",
+    "env-cmd": "^10.1.0",
+    "eslint": "^8.12.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-plugin-import": "^2.25.4",
+    "mocha": "^9.2.2",
+    "nyc": "^15.1.0",
+    "sinon": "^13.0.1"
+  },
+  "nyc": {
+    "check-coverage": true,
+    "all": true,
+    "include": [
+      "src/**/*.js"
+    ],
+    "exclude": [
+      "**/*/test-utils/**/*",
+      "**/*.spec.js",
+      "**/*.test.js",
+      "**/*.local.*"
+    ],
+    "reporter": [
+      "cobertura",
+      "lcov",
+      "text"
+    ],
+    "report-dir": "coverage"
+  }
+}

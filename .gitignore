@@ -1,0 +1,28 @@
+.aws-sam
+.venv
+.vscode
+*.packaged.*
+swagger-gen.json
+documentation/build
+.build
+openapi-generator
+*.local.*
+*.local
+.pytest-cache
+backend.zip
+test-results.xml
+artifacts
+.python-version
+__pycache__
+.pytest_cache
+.coverage
+.nyc_output
+coverage
+
+# Nuxt dev/build outputs
+.output
+.nuxt
+# Node dependencies
+node_modules
+# System files
+*.log
