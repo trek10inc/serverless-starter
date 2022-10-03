@@ -14,6 +14,7 @@ exports.handler = async (event, context) => {
   }).promise();
   const res = {
     items: data.Items,
+    message: 'hello, world!',
   };
   return res;
 };
