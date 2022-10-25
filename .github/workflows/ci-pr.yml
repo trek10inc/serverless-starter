@@ -29,15 +29,14 @@ jobs:
   get_short_ref:
     if: startsWith(github.head_ref, 'feature/')
     runs-on: ubuntu-latest
-    outputs:
-      short_ref: ${{ steps.short_ref_job.outputs.short_ref }}
     steps:
       - id: short_ref_job
         name: Testing
         run: |
           echo "GITHUB_HEAD_REF: ${GITHUB_HEAD_REF}"
-          echo "SHORT_REF: ${GITHUB_HEAD_REF/feature\/}"
-          echo ::set-output name=short_ref::$(echo ${GITHUB_HEAD_REF/feature\//} | cut -c -16)
+          export SHORT_REF=$(echo ${GITHUB_HEAD_REF/feature\//} | cut -c -16)
+          echo "SHORT_REF: ${SHORT_REF}"
+          echo "short_ref=$SHORT_REF" >> $GITHUB_ENV
   test:
     if: startsWith(github.head_ref, 'feature/')
     runs-on: ubuntu-latest
@@ -81,8 +80,8 @@ jobs:
       - package
       - get_short_ref
     env:
-      ENVIRONMENT_NAME: ${{ needs.get_short_ref.outputs.short_ref }}
-      DOMAIN_NAME: ${{ needs.get_short_ref.outputs.short_ref }}.dev.serverless-starter.sandbox.trek10.com
+      ENVIRONMENT_NAME: ${{ env.short_ref }}
+      DOMAIN_NAME: ${{ env.short_ref }}.dev.serverless-starter.sandbox.trek10.com
     runs-on: ubuntu-latest
     container: ghcr.io/trek10inc/serverless-starter-cicd-image:latest
     steps:
@@ -114,8 +113,8 @@ jobs:
       - deploy_pr
       - get_short_ref
     env:
-      ENVIRONMENT_NAME: ${{ needs.get_short_ref.outputs.short_ref }}
-      DOMAIN_NAME: ${{ needs.get_short_ref.outputs.short_ref }}.dev.serverless-starter.sandbox.trek10.com
+      ENVIRONMENT_NAME: ${{ env.short_ref }}
+      DOMAIN_NAME: ${{ env.short_ref }}.dev.serverless-starter.sandbox.trek10.com
     runs-on: ubuntu-latest
     container: ghcr.io/trek10inc/serverless-starter-cicd-image:latest
     steps:
