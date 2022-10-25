@@ -52,7 +52,7 @@ jobs:
         run: |
           make package
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: ${{ env.APPLICATION_NAME }}-${{ github.run_id }}
           path: artifacts/
