@@ -15,6 +15,7 @@ exports.handler = async (event, context) => {
   const res = {
     items: data.Items,
     message: 'hello, world!',
+    foo: 'bar',
   };
   return res;
 };

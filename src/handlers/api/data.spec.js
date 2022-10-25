@@ -31,6 +31,7 @@ describe('src/handlers/api/data.js', async () => {
     expect(res).deep.equals({
       items: [{ id: '123' }],
       message: 'hello, world!',
+      foo: 'bar',
     });
     sinon.assert.calledOnceWithExactly(dbc.scan, {
       TableName: 'dummy',
