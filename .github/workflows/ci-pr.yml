@@ -112,8 +112,7 @@ jobs:
       - deploy_pr
       - get_short_ref
     env:
-      ENVIRONMENT_NAME: ${{ env.short_ref }}
-      DOMAIN_NAME: ${{ env.short_ref }}.dev.serverless-starter.sandbox.trek10.com
+      DOMAIN_NAME: ${ENVIRONMENT_NAME}.dev.serverless-starter.sandbox.trek10.com
     runs-on: ubuntu-latest
     container: ghcr.io/trek10inc/serverless-starter-cicd-image:latest
     steps:
