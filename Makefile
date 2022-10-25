@@ -2,7 +2,7 @@ MAKEFLAGS=--warn-undefined-variables
 
 APPLICATION_NAME ?= serverless-starter
 STACK_NAME ?= ${APPLICATION_NAME}-${ENVIRONMENT_NAME}
-CHANGE_SET_NAME ?= "release-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
+CHANGE_SET_NAME ?= "release"
 AWS_REGION ?= us-east-1
 TEST_ARGS ?=
 
@@ -56,6 +56,7 @@ debug:
 package: artifacts/template.packaged.yml
 
 create-change-set:
+	mkdir -p artifacts
 	@echo "Deploying ${STACK_NAME} with changeset ${CHANGE_SET_NAME}"
 	aws cloudformation create-change-set \
 		--stack-name ${STACK_NAME} \
@@ -76,11 +77,11 @@ create-change-set:
 	while [[ "$$CHANGE_SET_STATUS" != "CREATE_COMPLETE" && "$$CHANGE_SET_STATUS" != "FAILED" ]]; do \
 		CHANGE_SET_STATUS=$$(aws cloudformation describe-change-set --stack-name ${STACK_NAME} --change-set-name ${CHANGE_SET_NAME} --output text --query 'Status'); \
 	done; \
+	aws cloudformation describe-change-set --stack-name ${STACK_NAME} --change-set-name ${CHANGE_SET_NAME} > artifacts/${STACK_NAME}-${CHANGE_SET_NAME}.json; \
 	if [[ "$$CHANGE_SET_STATUS" == "FAILED" ]]; then \
 		CHANGE_SET_STATUS_REASON=$$(aws cloudformation describe-change-set --stack-name ${STACK_NAME} --change-set-name ${CHANGE_SET_NAME} --output text --query 'StatusReason'); \
 		if [[ "$$CHANGE_SET_STATUS_REASON" == "The submitted information didn't contain changes. Submit different information to create a change set." ]]; then \
 			echo "ChangeSet contains no changes."; \
-			echo "::set-output name=no_changes::true"; \
 		else \
 			echo "Change set failed to create."; \
 			exit 1; \

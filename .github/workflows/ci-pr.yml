@@ -17,6 +17,7 @@ env:
   APPLICATION_NAME: serverless-starter
   ARTIFACT_BUCKET: trek10-sam-us-east-1
   ARTIFACT_PREFIX: artifacts
+  CHANGE_SET_NAME: release-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}
   CHANGE_SET_DESCRIPTION: ${{ github.event.pull_request.title }}
   HOSTED_ZONE_NAME: sandbox.trek10.com
 
@@ -29,6 +30,8 @@ jobs:
   get_short_ref:
     if: startsWith(github.head_ref, 'feature/')
     runs-on: ubuntu-latest
+    outputs:
+      short_ref: ${{ steps.short_ref_job.outputs.short_ref }}
     steps:
       - id: short_ref_job
         name: Testing
@@ -36,13 +39,13 @@ jobs:
           echo "GITHUB_HEAD_REF: ${GITHUB_HEAD_REF}"
           export SHORT_REF=$(echo ${GITHUB_HEAD_REF/feature\//} | cut -c -16)
           echo "SHORT_REF: ${SHORT_REF}"
-          echo "short_ref=$SHORT_REF" >> $GITHUB_ENV
+          echo "short_ref=${SHORT_REF}" >> $GITHUB_OUTPUT
   test:
     if: startsWith(github.head_ref, 'feature/')
     runs-on: ubuntu-latest
     container: ghcr.io/trek10inc/serverless-starter-cicd-image:latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Install dependencies
         run: |
           make dependencies
@@ -57,9 +60,9 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/trek10inc/serverless-starter-cicd-image:latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Assume role
-        uses: aws-actions/configure-aws-credentials@master
+        uses: aws-actions/configure-aws-credentials@v1-node16
         with:
           aws-region: us-east-1
           role-to-assume: arn:aws:iam::${{ env.TARGET_ACCOUNT_ID }}:role/${{ env.APPLICATION_NAME }}
@@ -71,7 +74,7 @@ jobs:
         run: |
           make package
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: ${{ env.APPLICATION_NAME }}-${{ github.run_id }}
           path: artifacts/
@@ -80,19 +83,19 @@ jobs:
       - package
       - get_short_ref
     env:
-      ENVIRONMENT_NAME: ${{ env.short_ref }}
-      DOMAIN_NAME: ${{ env.short_ref }}.dev.serverless-starter.sandbox.trek10.com
+      ENVIRONMENT_NAME: ${{ needs.get_short_ref.outputs.short_ref }}
+      DOMAIN_NAME: ${{ needs.get_short_ref.outputs.short_ref }}.dev.serverless-starter.sandbox.trek10.com
     runs-on: ubuntu-latest
     container: ghcr.io/trek10inc/serverless-starter-cicd-image:latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Download artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v3
         with:
           name: ${{ env.APPLICATION_NAME }}-${{ github.run_id }}
           path: artifacts/
       - name: Assume role
-        uses: aws-actions/configure-aws-credentials@master
+        uses: aws-actions/configure-aws-credentials@v1-node16
         with:
           aws-region: us-east-1
           role-to-assume: arn:aws:iam::${{ env.TARGET_ACCOUNT_ID }}:role/${{ env.APPLICATION_NAME }}
@@ -104,6 +107,11 @@ jobs:
         name: Create Change Set
         run: |
           make create-change-set
+          export CHANGE_SET_STATUS_REASON="$(cat artifacts/${STACK_NAME}-${CHANGE_SET_NAME}.json | jq -r .StatusReason)"
+          if [[ "$CHANGE_SET_STATUS_REASON" == "The submitted information didn't contain changes. Submit different information to create a change set." ]];
+          then
+            echo "no_changes=true" >> $GITHUB_OUTPUT
+          fi;
       - name: Execute Change Set
         if: ${{ steps.create_change_set.outputs.no_changes != 'true' }}
         run: |
@@ -113,14 +121,14 @@ jobs:
       - deploy_pr
       - get_short_ref
     env:
-      ENVIRONMENT_NAME: ${{ env.short_ref }}
-      DOMAIN_NAME: ${{ env.short_ref }}.dev.serverless-starter.sandbox.trek10.com
+      ENVIRONMENT_NAME: ${{ needs.get_short_ref.outputs.short_ref }}
+      DOMAIN_NAME: ${{ needs.get_short_ref.outputs.short_ref }}.dev.serverless-starter.sandbox.trek10.com
     runs-on: ubuntu-latest
     container: ghcr.io/trek10inc/serverless-starter-cicd-image:latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Assume role
-        uses: aws-actions/configure-aws-credentials@master
+        uses: aws-actions/configure-aws-credentials@v1-node16
         with:
           aws-region: us-east-1
           role-to-assume: arn:aws:iam::${{ env.TARGET_ACCOUNT_ID }}:role/${{ env.APPLICATION_NAME }}
