@@ -1,8 +1,6 @@
 MAKEFLAGS=--warn-undefined-variables
 
-APPLICATION_NAME ?= serverless-starter
 STACK_NAME ?= ${APPLICATION_NAME}-${ENVIRONMENT_NAME}
-CHANGE_SET_NAME ?= "release-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}"
 AWS_REGION ?= us-east-1
 TEST_ARGS ?=
 
@@ -35,7 +33,7 @@ artifacts/template.packaged.yml: templates/main.yml artifacts/dist.zip
 
 
 ### PHONY dependencies
-.PHONY: dependencies lint-cfn lint-code lint build test coverage debug package create-change-set deploy-change-set integration-test openapi-server clean
+.PHONY: dependencies lint build test coverage debug package create-change-set deploy-change-set integration-test openapi-server clean
 
 dependencies: node_modules src/node_modules
 	pip install -r requirements.txt
@@ -76,17 +74,19 @@ create-change-set:
 	while [[ "$$CHANGE_SET_STATUS" != "CREATE_COMPLETE" && "$$CHANGE_SET_STATUS" != "FAILED" ]]; do \
 		CHANGE_SET_STATUS=$$(aws cloudformation describe-change-set --stack-name ${STACK_NAME} --change-set-name ${CHANGE_SET_NAME} --output text --query 'Status'); \
 	done; \
+	aws cloudformation describe-change-set --stack-name ${STACK_NAME} --change-set-name ${CHANGE_SET_NAME} > artifacts/${STACK_NAME}-${CHANGE_SET_NAME}.json; \
 	if [[ "$$CHANGE_SET_STATUS" == "FAILED" ]]; then \
 		CHANGE_SET_STATUS_REASON=$$(aws cloudformation describe-change-set --stack-name ${STACK_NAME} --change-set-name ${CHANGE_SET_NAME} --output text --query 'StatusReason'); \
 		if [[ "$$CHANGE_SET_STATUS_REASON" == "The submitted information didn't contain changes. Submit different information to create a change set." ]]; then \
 			echo "ChangeSet contains no changes."; \
-			echo "::set-output name=no_changes::true"; \
 		else \
 			echo "Change set failed to create."; \
+			echo "$$CHANGE_SET_STATUS_REASON"; \
 			exit 1; \
 		fi; \
 	fi;
 	@echo "Change set ${STACK_NAME} - ${CHANGE_SET_NAME} created."
+	npx cfn-changeset-viewer --stack-name ${STACK_NAME} --change-set-name ${CHANGE_SET_NAME}
 
 deploy-change-set: node_modules
 	CHANGE_SET_STATUS=$$(aws cloudformation describe-change-set --stack-name ${STACK_NAME} --change-set-name ${CHANGE_SET_NAME} --output text --query 'Status'); \
@@ -104,7 +104,7 @@ deploy-change-set: node_modules
 			--stack-name ${STACK_NAME} \
 			--change-set-name ${CHANGE_SET_NAME}; \
 	fi;
-	./node_modules/.bin/cfn-event-tailer ${STACK_NAME}
+	npx cfn-event-tailer ${STACK_NAME}
 
 integration-test: node_modules
 	export API_ENDPOINT=$$(aws cloudformation describe-stacks --stack-name ${STACK_NAME} --query "Stacks[0].Outputs[?OutputKey=='ApiEndpoint'].OutputValue" --output text); \

@@ -17,8 +17,8 @@ env:
   APPLICATION_NAME: serverless-starter
   ARTIFACT_BUCKET: trek10-sam-us-east-1
   ARTIFACT_PREFIX: artifacts
+  CHANGE_SET_NAME: release-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}
   CHANGE_SET_DESCRIPTION: ${{ github.event.pull_request.title }}
-  HOSTED_ZONE_NAME: sandbox.trek10.com
 
 permissions:
   id-token: write
@@ -82,7 +82,6 @@ jobs:
       - get_short_ref
     env:
       ENVIRONMENT_NAME: ${{ needs.get_short_ref.outputs.short_ref }}
-      DOMAIN_NAME: ${{ needs.get_short_ref.outputs.short_ref }}.dev.serverless-starter.sandbox.trek10.com
     runs-on: ubuntu-latest
     container: ghcr.io/trek10inc/serverless-starter-cicd-image:latest
     steps:
@@ -115,7 +114,6 @@ jobs:
       - get_short_ref
     env:
       ENVIRONMENT_NAME: ${{ needs.get_short_ref.outputs.short_ref }}
-      DOMAIN_NAME: ${{ needs.get_short_ref.outputs.short_ref }}.dev.serverless-starter.sandbox.trek10.com
     runs-on: ubuntu-latest
     container: ghcr.io/trek10inc/serverless-starter-cicd-image:latest
     steps:

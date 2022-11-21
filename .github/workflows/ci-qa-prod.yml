@@ -11,6 +11,7 @@ env:
   APPLICATION_NAME: serverless-starter
   ARTIFACT_BUCKET: trek10-sam-us-east-1
   ARTIFACT_PREFIX: artifacts
+  CHANGE_SET_NAME: release-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}
   CHANGE_SET_DESCRIPTION: ${{ github.event.head_commit.message }}
 
 permissions:
@@ -63,8 +64,6 @@ jobs:
     environment: qa
     env:
       ENVIRONMENT_NAME: qa
-      HOSTED_ZONE_NAME: qa.serverless-starter.sandbox.trek10.com
-      DOMAIN_NAME: qa.serverless-starter.sandbox.trek10.com
     steps:
       - uses: actions/checkout@v2
       - name: Download artifacts
@@ -95,7 +94,6 @@ jobs:
     container: ghcr.io/trek10inc/serverless-starter-cicd-image:latest
     env:
       ENVIRONMENT_NAME: qa
-      DOMAIN_NAME: qa.serverless-starter.sandbox.trek10.com
     steps:
       - uses: actions/checkout@v2
       - name: Assume role
@@ -116,8 +114,6 @@ jobs:
     container: ghcr.io/trek10inc/serverless-starter-cicd-image:latest
     env:
       ENVIRONMENT_NAME: prod
-      HOSTED_ZONE_NAME: serverless-starter.sandbox.trek10.com
-      DOMAIN_NAME: serverless-starter.sandbox.trek10.com
     outputs:
       no_changes: ${{ steps.create_change_set.outputs.no_changes }}
     steps:

@@ -11,9 +11,8 @@ env:
   ENVIRONMENT_NAME: dev
   ARTIFACT_BUCKET: trek10-sam-us-east-1
   ARTIFACT_PREFIX: artifacts
+  CHANGE_SET_NAME: release-${GITHUB_RUN_NUMBER}-${GITHUB_RUN_ATTEMPT}
   CHANGE_SET_DESCRIPTION: ${{ github.event.head_commit.message }}
-  HOSTED_ZONE_NAME: sandbox.trek10.com
-  DOMAIN_NAME: dev.serverless-starter.sandbox.trek10.com
 
 permissions:
   id-token: write
