@@ -78,7 +78,7 @@ create-change-set:
 	done; \
 	if [[ "$$CHANGE_SET_STATUS" == "FAILED" ]]; then \
 		CHANGE_SET_STATUS_REASON=$$(aws cloudformation describe-change-set --stack-name ${STACK_NAME} --change-set-name ${CHANGE_SET_NAME} --output text --query 'StatusReason'); \
-		if [[ "$$CHANGE_SET_STATUS_REASON" == "The submitted information didn't contain changes. Submit different information to create a change set." ]]; then \
+		if [[ "$$CHANGE_SET_STATUS_REASON" == "No updates are to be performed." ]]; then \
 			echo "ChangeSet contains no changes."; \
 			echo "::set-output name=no_changes::true"; \
 		else \
@@ -93,7 +93,7 @@ deploy-change-set: node_modules
 	if [[ "$$CHANGE_SET_STATUS" == "FAILED" ]]; then \
 		CHANGE_SET_STATUS_REASON=$$(aws cloudformation describe-change-set --stack-name ${STACK_NAME} --change-set-name ${CHANGE_SET_NAME} --output text --query 'StatusReason'); \
 		echo "$$CHANGE_SET_STATUS_REASON"; \
-		if [[ "$$CHANGE_SET_STATUS_REASON" == "The submitted information didn't contain changes. Submit different information to create a change set." ]]; then \
+		if [[ "$$CHANGE_SET_STATUS_REASON" == "No updates are to be performed." ]]; then \
 			echo "ChangeSet contains no changes."; \
 		else \
 			echo "Change set failed to create."; \
